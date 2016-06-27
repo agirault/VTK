@@ -292,6 +292,7 @@ void vtkOpenGLPolyDataMapper::BuildShaders(
     }
 }
 
+//-----------------------------------------------------------------------------
 bool vtkOpenGLPolyDataMapper::HaveWideLines(
   vtkRenderer *ren,
   vtkActor *actor)
@@ -377,6 +378,22 @@ unsigned long vtkOpenGLPolyDataMapper::GetRenderPassStageMTime(vtkActor *actor)
     }
 
   return renderPassMTime;
+}
+
+//-----------------------------------------------------------------------------
+bool vtkOpenGLPolyDataMapper::HaveTextures(vtkActor *actor)
+{
+    return (this->ColorTextureMap ||
+            actor->GetTexture() ||
+            actor->GetProperty()->GetNumberOfTextures());
+}
+
+//-----------------------------------------------------------------------------
+bool vtkOpenGLPolyDataMapper::HaveTCoords(vtkPolyData *poly)
+{
+    return (this->ColorCoordinates ||
+            poly->GetPointData()->GetTCoords() ||
+            this->ForceTextureCoordinates);
 }
 
 //-----------------------------------------------------------------------------
@@ -885,7 +902,7 @@ void vtkOpenGLPolyDataMapper::ReplaceShaderTCoord(
   std::string GSSource = shaders[vtkShader::Geometry]->GetSource();
   std::string FSSource = shaders[vtkShader::Fragment]->GetSource();
 
-  if (this->VBO->TCoordComponents)
+  if (this->HaveTextures(actor))
     {
     vtkInformation *info = actor->GetPropertyKeys();
     if (info && info->Has(vtkProp::GeneralTextureTransform()))
@@ -1602,7 +1619,7 @@ void vtkOpenGLPolyDataMapper::SetMapperShaderParameters(vtkOpenGLHelper &cellBO,
     cellBO.AttributeUpdateTime.Modified();
     }
 
-  if (this->VBO->TCoordComponents)
+  if (this->HaveTextures(actor))
     {
     // Texture units
     for(unsigned int i = 0; i < actor->GetProperty()->GetNumberOfTextures(); ++i)
@@ -3065,16 +3082,9 @@ void vtkOpenGLPolyDataMapper::BuildBufferObjects(vtkRenderer *ren, vtkActor *act
       }
     }
 
-    // do we have texture maps?
-    bool haveTextures = (this->ColorTextureMap || act->GetTexture() ||
-      act->GetProperty()->GetNumberOfTextures() ||
-      this->ForceTextureCoordinates);
-
     // Set the texture if we are going to use texture
     // for coloring with a point attribute.
-    // fixme ... make the existence of the coordinate array the signal.
-    vtkDataArray *tcoords = NULL;
-    if (haveTextures)
+    if (this->HaveTCoords(poly))
       {
       if (this->InterpolateScalarsBeforeMapping && this->ColorCoordinates)
         {
