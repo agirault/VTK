@@ -959,8 +959,11 @@ void vtkOpenGLPolyDataMapper::ReplaceShaderTCoord(
 
         // Define tcoordVCVSOutput
         ss.str("");
-        ss << "attribute " << tCoordType << " " << tCoordsName << ";\n"
-           << "varying " << tCoordType << " tcoordVCVSOutput_" << i << ";\n";
+        if(!strstr(tCoordDecVS.c_str(), tCoordsName.c_str())) // define once per tCoordinates
+          {
+          ss << "attribute " << tCoordType << " " << tCoordsName << ";\n";
+          }
+        ss << "varying " << tCoordType << " tcoordVCVSOutput_" << i << ";\n";
         tCoordDecVS += ss.str();
 
         // Implement tcoordVCVSOutput
