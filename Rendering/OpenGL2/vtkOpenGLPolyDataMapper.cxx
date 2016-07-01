@@ -932,9 +932,20 @@ void vtkOpenGLPolyDataMapper::ReplaceShaderTCoord(
         std::string tCoordsName;
         if(!this->GetMappedTCoordsName(texture->GetTextureUnit(), &tCoordsName))
           {
-          vtkErrorMacro(<< "Could not find texture coordinates associated with "
-                        << "texture unit " << texture->GetTextureUnit() << ".")
-          continue;
+          if (this->InterpolateScalarsBeforeMapping && this->ColorCoordinates)
+            {
+            tCoordsName = this->ColorCoordinates->GetName();
+            }
+          if (vtkDataArray* tCoords = this->CurrentInput->GetPointData()->GetTCoords())
+            {
+            tCoordsName = tCoords->GetName();
+            }
+          else
+            {
+            vtkErrorMacro(<< "Could not find texture coordinates associated with "
+                          << "texture unit " << texture->GetTextureUnit() << ".")
+            continue;
+            }
           }
 
         // If 1 or 2 components per coordinates
@@ -1644,7 +1655,18 @@ void vtkOpenGLPolyDataMapper::SetMapperShaderParameters(vtkOpenGLHelper &cellBO,
         std::string tCoordsName;
         if(!this->GetMappedTCoordsName(texture->GetTextureUnit(), &tCoordsName))
           {
-          continue;
+          if (this->InterpolateScalarsBeforeMapping && this->ColorCoordinates)
+            {
+            tCoordsName = this->ColorCoordinates->GetName();
+            }
+          if (vtkDataArray* tCoords = this->CurrentInput->GetPointData()->GetTCoords())
+            {
+            tCoordsName = tCoords->GetName();
+            }
+          else
+            {
+            continue;
+            }
           }
 
         if (this->VBO->Offset.count(tCoordsName) &&
@@ -3146,10 +3168,22 @@ void vtkOpenGLPolyDataMapper::BuildBufferObjects(vtkRenderer *ren, vtkActor *act
       {
       if (this->InterpolateScalarsBeforeMapping && this->ColorCoordinates)
         {
+        if (!this->ColorCoordinates->GetName())
+          {
+          this->ColorCoordinates->SetName("CCoords");
+          }
         tcoords_list.push_back(this->ColorCoordinates);
         }
       else
         {
+        if (vtkDataArray* tcoords = poly->GetPointData()->GetTCoords())
+          {
+          if (!tcoords->GetName())
+            {
+            tcoords->SetName("TCoords");
+            }
+          tcoords_list.push_back(tcoords);
+          }
         for(unsigned int i = 0 ; i < act->GetProperty()->GetNumberOfTextures(); ++i)
           {
           if (vtkTexture* texture = act->GetProperty()->GetTexture(i))
