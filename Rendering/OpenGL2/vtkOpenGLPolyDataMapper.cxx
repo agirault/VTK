@@ -993,64 +993,64 @@ void vtkOpenGLPolyDataMapper::ReplaceShaderTCoord(
           }
         }
 
-        // If 1 or 2 components per coordinates
-        if (this->VBO->Components[tCoordsName] == 1)
-          {
-          tCoordType = "float";
-          tCoordImpVS1 = ",0.0,0.0,1.0";
-          tCoordImpVS2 = ".x";
-          tCoordImpFSPre = "vec2(";
-          tCoordImpFSPost = ", 0.0)";
-          }
-        else
-          {
-          tCoordType = "vec2";
-          tCoordImpVS1 = ",0.0,1.0";
-          tCoordImpVS2 = ".xy";
-          tCoordImpFSPre = "";
-          tCoordImpFSPost = "";
-          }
+      // If 1 or 2 components per coordinates
+      if (this->VBO->Components[tCoordsName] == 1)
+        {
+        tCoordType = "float";
+        tCoordImpVS1 = ",0.0,0.0,1.0";
+        tCoordImpVS2 = ".x";
+        tCoordImpFSPre = "vec2(";
+        tCoordImpFSPost = ", 0.0)";
+        }
+      else
+        {
+        tCoordType = "vec2";
+        tCoordImpVS1 = ",0.0,1.0";
+        tCoordImpVS2 = ".xy";
+        tCoordImpFSPre = "";
+        tCoordImpFSPost = "";
+        }
 
-        std::stringstream ss;
+      std::stringstream ss;
 
-        // Define tcoordVCVSOutput
-        ss.str("");
-        if(!strstr(tCoordDecVS.c_str(), tCoordsName.c_str())) // define once per tCoordinates
-          {
-          ss << "attribute " << tCoordType << " " << tCoordsName << ";\n";
-          }
-        ss << "varying " << tCoordType << " tcoordVCVSOutput_" << i << ";\n";
-        tCoordDecVS += ss.str();
+      // Define tcoordVCVSOutput
+      ss.str("");
+      if(!strstr(tCoordDecVS.c_str(), tCoordsName.c_str())) // define once per tCoordinates
+        {
+        ss << "attribute " << tCoordType << " " << tCoordsName << ";\n";
+        }
+      ss << "varying " << tCoordType << " tcoordVCVSOutput_" << i << ";\n";
+      tCoordDecVS += ss.str();
 
-        // Implement tcoordVCVSOutput
-        ss.str("");
-        if (info && info->Has(vtkProp::GeneralTextureTransform()))
-          {
-          ss << "vec4 tcoordTmp = tcMatrix*vec4(" << tCoordsName << tCoordImpVS1 << ");\n"
-             << "tcoordVCVSOutput_" << i << " = tcoordTmp" << tCoordImpVS2 << "/tcoordTmp.w;\n";
-          }
-        else
-          {
-          ss << "tcoordVCVSOutput_" << i << " = " << tCoordsName << ";\n";
-          }
-        tCoordImpVS += ss.str();
+      // Implement tcoordVCVSOutput
+      ss.str("");
+      if (info && info->Has(vtkProp::GeneralTextureTransform()))
+        {
+        ss << "vec4 tcoordTmp = tcMatrix*vec4(" << tCoordsName << tCoordImpVS1 << ");\n"
+           << "tcoordVCVSOutput_" << i << " = tcoordTmp" << tCoordImpVS2 << "/tcoordTmp.w;\n";
+        }
+      else
+        {
+        ss << "tcoordVCVSOutput_" << i << " = " << tCoordsName << ";\n";
+        }
+      tCoordImpVS += ss.str();
 
-        // Define tcoordVCGSOutput
-        ss.str("");
-        ss << "in " << tCoordType << " tcoordVCVSOutput_" << i << "[];\n"
-           << "out " << tCoordType << " tcoordVCGSOutput_" << i << ";\n";
-        tCoordDecGS += ss.str();
+      // Define tcoordVCGSOutput
+      ss.str("");
+      ss << "in " << tCoordType << " tcoordVCVSOutput_" << i << "[];\n"
+         << "out " << tCoordType << " tcoordVCGSOutput_" << i << ";\n";
+      tCoordDecGS += ss.str();
 
-        // Implement tcoordVCGSOutput
-        ss.str("");
-        ss << "tcoordVCGSOutput_" << i << " = tcoordVCVSOutput_" << i << "[i];\n";
-        tCoordImpGS += ss.str();
+      // Implement tcoordVCGSOutput
+      ss.str("");
+      ss << "tcoordVCGSOutput_" << i << " = tcoordVCVSOutput_" << i << "[i];\n";
+      tCoordImpGS += ss.str();
 
-        // Define texture
-        ss.str("");
-        ss << "varying " + tCoordType + " tcoordVCVSOutput_" << i << ";\n"
-           << "uniform sampler2D texture_" << i << ";\n";
-        tCoordDecFS += ss.str();
+      // Define texture
+      ss.str("");
+      ss << "varying " + tCoordType + " tcoordVCVSOutput_" << i << ";\n"
+         << "uniform sampler2D texture_" << i << ";\n";
+      tCoordDecFS += ss.str();
 
       // Quit here if texturing by colors
       if (this->InterpolateScalarsBeforeMapping && this->ColorCoordinates)
@@ -1058,66 +1058,66 @@ void vtkOpenGLPolyDataMapper::ReplaceShaderTCoord(
         break;
         }
 
-        // Read texture color
-        ss.str("");
-        ss << "vec4 tcolor_" << i << " = texture2D(texture_" << i << ", "
-           << tCoordImpFSPre << "tcoordVCVSOutput_" << i << tCoordImpFSPost << "); // Read texture color\n";
+      // Read texture color
+      ss.str("");
+      ss << "vec4 tcolor_" << i << " = texture2D(texture_" << i << ", "
+         << tCoordImpFSPre << "tcoordVCVSOutput_" << i << tCoordImpFSPost << "); // Read texture color\n";
 
-        // Update color based on texture number of components
-        int tNumComp = vtkOpenGLTexture::SafeDownCast(texture)->GetTextureObject()->GetComponents();
-        switch (tNumComp)
-          {
-          case 1:
-            ss << "tcolor_" << i << " = vec4(tcolor_" << i << ".r,tcolor_" << i << ".r,tcolor_" << i << ".r,1.0)";
-            break;
-          case 2:
-            ss << "tcolor_" << i << " = vec4(tcolor_" << i << ".r,tcolor_" << i << ".r,tcolor_" << i << ".r,tcolor_" << i << ".g)";
-            break;
-          case 3:
-            ss << "tcolor_" << i << " = vec4(tcolor_" << i << ".r,tcolor_" << i << ".g,tcolor_" << i << ".b,1.0)";
-          }
-        ss << "; // Update color based on texture nbr of components \n";
+      // Update color based on texture number of components
+      int tNumComp = vtkOpenGLTexture::SafeDownCast(texture)->GetTextureObject()->GetComponents();
+      switch (tNumComp)
+        {
+        case 1:
+          ss << "tcolor_" << i << " = vec4(tcolor_" << i << ".r,tcolor_" << i << ".r,tcolor_" << i << ".r,1.0)";
+          break;
+        case 2:
+          ss << "tcolor_" << i << " = vec4(tcolor_" << i << ".r,tcolor_" << i << ".r,tcolor_" << i << ".r,tcolor_" << i << ".g)";
+          break;
+        case 3:
+          ss << "tcolor_" << i << " = vec4(tcolor_" << i << ".r,tcolor_" << i << ".g,tcolor_" << i << ".b,1.0)";
+        }
+      ss << "; // Update color based on texture nbr of components \n";
 
-        // Define final color based on texture blending
-        if(i == 0)
+      // Define final color based on texture blending
+      if(i == 0)
+        {
+        ss << "vec4 tcolor = tcolor_" << i << "; // BLENDING: None (first texture) \n\n";
+        }
+      else
+        {
+        int tBlending = vtkOpenGLTexture::SafeDownCast(texture)->GetBlendingMode();
+        switch (tBlending)
           {
-          ss << "vec4 tcolor = tcolor_" << i << "; // BLENDING: None (first texture) \n\n";
+          case vtkTexture::VTKTextureBlendingMode::VTK_TEXTURE_BLENDING_MODE_REPLACE:
+            ss << "tcolor.rgb = tcolor_" << i << ".rgb * tcolor_" << i << ".a + "
+               << "tcolor.rgb * (1 - tcolor_" << i << " .a); // BLENDING: Replace\n"
+               << "tcolor.a = tcolor_" << i << ".a + tcolor.a * (1 - tcolor_" << i << " .a); // BLENDING: Replace\n\n";
+            break;
+          case vtkTexture::VTKTextureBlendingMode::VTK_TEXTURE_BLENDING_MODE_MODULATE:
+            ss << "tcolor *= tcolor_" << i << "; // BLENDING: Modulate\n\n";
+            break;
+          case vtkTexture::VTKTextureBlendingMode::VTK_TEXTURE_BLENDING_MODE_ADD:
+            ss << "tcolor.rgb = tcolor_" << i << ".rgb * tcolor_" << i << ".a + "
+               << "tcolor.rgb * tcolor.a; // BLENDING: Add\n"
+               << "tcolor.a += tcolor_" << i << ".a; // BLENDING: Add\n\n";
+            break;
+          case vtkTexture::VTKTextureBlendingMode::VTK_TEXTURE_BLENDING_MODE_ADD_SIGNED:
+            ss << "tcolor.rgb = tcolor_" << i << ".rgb * tcolor_" << i << ".a + "
+               << "tcolor.rgb * tcolor.a - 0.5; // BLENDING: Add signed\n"
+               << "tcolor.a += tcolor_" << i << ".a - 0.5; // BLENDING: Add signed\n\n";
+            break;
+          case vtkTexture::VTKTextureBlendingMode::VTK_TEXTURE_BLENDING_MODE_INTERPOLATE:
+            vtkDebugMacro(<< "Interpolate blending mode not supported for OpenGL2 backend.");
+            break;
+          case vtkTexture::VTKTextureBlendingMode::VTK_TEXTURE_BLENDING_MODE_SUBTRACT:
+            ss << "tcolor.rgb -= tcolor_" << i << ".rgb * tcolor_" << i << ".a; // BLENDING: Subtract\n\n";
+            break;
+          default:
+            vtkDebugMacro(<< "No blending mode given, ignoring this texture colors.");
+            ss << "// NO BLENDING MODE: ignoring this texture colors\n";
           }
-        else
-          {
-          int tBlending = vtkOpenGLTexture::SafeDownCast(texture)->GetBlendingMode();
-          switch (tBlending)
-            {
-            case vtkTexture::VTKTextureBlendingMode::VTK_TEXTURE_BLENDING_MODE_REPLACE:
-              ss << "tcolor.rgb = tcolor_" << i << ".rgb * tcolor_" << i << ".a + "
-                 << "tcolor.rgb * (1 - tcolor_" << i << " .a); // BLENDING: Replace\n"
-                 << "tcolor.a = tcolor_" << i << ".a + tcolor.a * (1 - tcolor_" << i << " .a); // BLENDING: Replace\n\n";
-              break;
-            case vtkTexture::VTKTextureBlendingMode::VTK_TEXTURE_BLENDING_MODE_MODULATE:
-              ss << "tcolor *= tcolor_" << i << "; // BLENDING: Modulate\n\n";
-              break;
-            case vtkTexture::VTKTextureBlendingMode::VTK_TEXTURE_BLENDING_MODE_ADD:
-              ss << "tcolor.rgb = tcolor_" << i << ".rgb * tcolor_" << i << ".a + "
-                 << "tcolor.rgb * tcolor.a; // BLENDING: Add\n"
-                 << "tcolor.a += tcolor_" << i << ".a; // BLENDING: Add\n\n";
-              break;
-            case vtkTexture::VTKTextureBlendingMode::VTK_TEXTURE_BLENDING_MODE_ADD_SIGNED:
-              ss << "tcolor.rgb = tcolor_" << i << ".rgb * tcolor_" << i << ".a + "
-                 << "tcolor.rgb * tcolor.a - 0.5; // BLENDING: Add signed\n"
-                 << "tcolor.a += tcolor_" << i << ".a - 0.5; // BLENDING: Add signed\n\n";
-              break;
-            case vtkTexture::VTKTextureBlendingMode::VTK_TEXTURE_BLENDING_MODE_INTERPOLATE:
-              vtkDebugMacro(<< "Interpolate blending mode not supported for OpenGL2 backend.");
-              break;
-            case vtkTexture::VTKTextureBlendingMode::VTK_TEXTURE_BLENDING_MODE_SUBTRACT:
-              ss << "tcolor.rgb -= tcolor_" << i << ".rgb * tcolor_" << i << ".a; // BLENDING: Subtract\n\n";
-              break;
-            default:
-              vtkDebugMacro(<< "No blending mode given, ignoring this texture colors.");
-              ss << "// NO BLENDING MODE: ignoring this texture colors\n";
-            }
-          }
-        tCoordImpFS += ss.str();
+        }
+      tCoordImpFS += ss.str();
 
       // Quit here if using the lone actor texture
       if (actor->GetTexture())
@@ -1742,20 +1742,20 @@ void vtkOpenGLPolyDataMapper::SetMapperShaderParameters(vtkOpenGLHelper &cellBO,
           }
         }
 
-        if (this->VBO->Offset.count(tCoordsName) &&
-            !this->DrawingEdges &&
-            cellBO.Program->IsAttributeUsed(tCoordsName.c_str()))
+      if (this->VBO->Offset.count(tCoordsName) &&
+          !this->DrawingEdges &&
+          cellBO.Program->IsAttributeUsed(tCoordsName.c_str()))
+        {
+        if (!cellBO.VAO->AddAttributeArray(cellBO.Program, this->VBO, tCoordsName,
+          this->VBO->Offset[tCoordsName],
+          this->VBO->Stride,
+          this->VBO->DataType[tCoordsName],
+          this->VBO->Components[tCoordsName],
+          false))
           {
-          if (!cellBO.VAO->AddAttributeArray(cellBO.Program, this->VBO, tCoordsName,
-            this->VBO->Offset[tCoordsName],
-            this->VBO->Stride,
-            this->VBO->DataType[tCoordsName],
-            this->VBO->Components[tCoordsName],
-            false))
-            {
-            vtkErrorMacro(<< "Error setting '" << tCoordsName << "' in shader VAO.");
-            }
+          vtkErrorMacro(<< "Error setting '" << tCoordsName << "' in shader VAO.");
           }
+        }
 
       // Quit here if using only one texture
       if ( (this->InterpolateScalarsBeforeMapping && this->ColorCoordinates) || actor->GetTexture() )
