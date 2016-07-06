@@ -950,17 +950,36 @@ void vtkOpenGLPolyDataMapper::ReplaceShaderTCoord(
     std::string tCoordImpGS;
     std::string tCoordDecFS;
     std::string tCoordImpFS;
-    for(unsigned int i = 0 ; i < actor->GetProperty()->GetNumberOfTextures(); ++i)
+
+    vtkTexture* texture;
+    std::string tCoordsName;
+    for(unsigned int i = 0;
+        i < actor->GetProperty()->GetNumberOfTextures() + this->InterpolateScalarsBeforeMapping + (actor->GetTexture() ? 1 : 0);
+        ++i)
       {
-      if (vtkTexture* texture = actor->GetProperty()->GetTexture(i))
+      if (this->InterpolateScalarsBeforeMapping
+          && this->ColorTextureMap
+          && this->ColorCoordinates)
         {
-        std::string tCoordsName;
+        texture = this->InternalColorTexture;
+        tCoordsName = this->ColorCoordinates->GetName();
+        }
+      else if (texture = actor->GetTexture())
+        {
+        if (vtkDataArray* tCoords = this->CurrentInput->GetPointData()->GetTCoords())
+          {
+          tCoordsName = tCoords->GetName();
+          }
+        else
+          {
+          vtkErrorMacro(<< "Could not find texture coordinates associated with actor texture unit.")
+          continue;
+          }
+        }
+      else if (texture = actor->GetProperty()->GetTexture(i))
+        {
         if(!this->GetMappedTCoordsName(texture->GetTextureUnit(), &tCoordsName))
           {
-          if (this->InterpolateScalarsBeforeMapping && this->ColorCoordinates)
-            {
-            tCoordsName = this->ColorCoordinates->GetName();
-            }
           if (vtkDataArray* tCoords = this->CurrentInput->GetPointData()->GetTCoords())
             {
             tCoordsName = tCoords->GetName();
@@ -972,6 +991,7 @@ void vtkOpenGLPolyDataMapper::ReplaceShaderTCoord(
             continue;
             }
           }
+        }
 
         // If 1 or 2 components per coordinates
         if (this->VBO->Components[tCoordsName] == 1)
@@ -1031,6 +1051,12 @@ void vtkOpenGLPolyDataMapper::ReplaceShaderTCoord(
         ss << "varying " + tCoordType + " tcoordVCVSOutput_" << i << ";\n"
            << "uniform sampler2D texture_" << i << ";\n";
         tCoordDecFS += ss.str();
+
+      // Quit here if texturing by colors
+      if (this->InterpolateScalarsBeforeMapping && this->ColorCoordinates)
+        {
+        break;
+        }
 
         // Read texture color
         ss.str("");
@@ -1092,8 +1118,13 @@ void vtkOpenGLPolyDataMapper::ReplaceShaderTCoord(
             }
           }
         tCoordImpFS += ss.str();
+
+      // Quit here if using the lone actor texture
+      if (actor->GetTexture())
+        {
+        break;
         }
-      }
+      } // end for all textures
 
     // Substitute in shader files
     vtkShaderProgram::Substitute(VSSource, "//VTK::TCoord::Dec", tCoordDecVS);
@@ -1110,7 +1141,7 @@ void vtkOpenGLPolyDataMapper::ReplaceShaderTCoord(
         vtkShaderProgram::Substitute(FSSource, "//VTK::TCoord::Impl", tCoordImpFS);
       }
 
-    }
+    } // end if have textures
 
   shaders[vtkShader::Vertex]->SetSource(VSSource);
   shaders[vtkShader::Geometry]->SetSource(GSSource);
@@ -1673,26 +1704,43 @@ void vtkOpenGLPolyDataMapper::SetMapperShaderParameters(vtkOpenGLHelper &cellBO,
         vtkErrorMacro(<< "Error setting 'scalarColor' in shader VAO.");
         }
       }
-    for(unsigned int i = 0 ; i < actor->GetProperty()->GetNumberOfTextures(); ++i)
+    for(unsigned int i = 0;
+        i < actor->GetProperty()->GetNumberOfTextures() + this->InterpolateScalarsBeforeMapping + (actor->GetTexture() ? 1 : 0);
+        ++i)
       {
-      if (vtkTexture* texture = actor->GetProperty()->GetTexture(i))
+      std::string tCoordsName;
+      if (this->InterpolateScalarsBeforeMapping && this->ColorCoordinates)
         {
-        std::string tCoordsName;
+        tCoordsName = this->ColorCoordinates->GetName();
+        }
+      else if (actor->GetTexture())
+        {
+        if (vtkDataArray* tCoords = this->CurrentInput->GetPointData()->GetTCoords())
+          {
+          tCoordsName = tCoords->GetName();
+          }
+        else
+          {
+          vtkErrorMacro(<< "Could not find texture coordinates associated with actor texture unit.")
+          continue;
+          }
+        }
+      else if (vtkTexture* texture = actor->GetProperty()->GetTexture(i))
+        {
         if(!this->GetMappedTCoordsName(texture->GetTextureUnit(), &tCoordsName))
           {
-          if (this->InterpolateScalarsBeforeMapping && this->ColorCoordinates)
-            {
-            tCoordsName = this->ColorCoordinates->GetName();
-            }
           if (vtkDataArray* tCoords = this->CurrentInput->GetPointData()->GetTCoords())
             {
             tCoordsName = tCoords->GetName();
             }
           else
             {
+            vtkErrorMacro(<< "Could not find texture coordinates associated with "
+                          << "texture unit " << texture->GetTextureUnit() << ".")
             continue;
             }
           }
+        }
 
         if (this->VBO->Offset.count(tCoordsName) &&
             !this->DrawingEdges &&
@@ -1708,6 +1756,11 @@ void vtkOpenGLPolyDataMapper::SetMapperShaderParameters(vtkOpenGLHelper &cellBO,
             vtkErrorMacro(<< "Error setting '" << tCoordsName << "' in shader VAO.");
             }
           }
+
+      // Quit here if using only one texture
+      if ( (this->InterpolateScalarsBeforeMapping && this->ColorCoordinates) || actor->GetTexture() )
+        {
+        break;
         }
       }
     if (this->AppleBugPrimIDs.size() &&
@@ -1726,16 +1779,40 @@ void vtkOpenGLPolyDataMapper::SetMapperShaderParameters(vtkOpenGLHelper &cellBO,
 
   if (this->HaveTextures(actor))
     {
-    // Texture units
-    for(unsigned int i = 0; i < actor->GetProperty()->GetNumberOfTextures(); ++i)
+    for(unsigned int i = 0;
+        i < actor->GetProperty()->GetNumberOfTextures() + this->InterpolateScalarsBeforeMapping + (actor->GetTexture() ? 1 : 0);
+        ++i)
       {
-      vtkTexture* texture = actor->GetProperty()->GetTexture(i);
+      vtkTexture* texture;
+      if (this->InterpolateScalarsBeforeMapping && this->ColorTextureMap)
+        {
+        texture = this->InternalColorTexture;
+        }
+      else if (actor->GetTexture())
+        {
+        texture = actor->GetTexture();
+        }
+      else if (texture = actor->GetProperty()->GetTexture(i))
+        {
+        texture = actor->GetProperty()->GetTexture(i);
+        }
+      else
+        {
+        break;
+        }
+
       std::stringstream ss; ss << "texture_" << i;
       std::string s = ss.str();
       if (texture && cellBO.Program->IsUniformUsed(s.c_str()))
         {
         int tunit = vtkOpenGLTexture::SafeDownCast(texture)->GetTextureUnit();
         cellBO.Program->SetUniformi(s.c_str(), tunit);
+        }
+
+      // Quit here if using only one texture
+      if ( (this->InterpolateScalarsBeforeMapping && this->ColorCoordinates) || actor->GetTexture() )
+        {
+        break;
         }
       }
 
