@@ -507,17 +507,40 @@ void vtkOpenGLPolyDataMapper::ReplaceShaderColor(
   if (this->VBO->ColorOffset && !this->DrawingEdges)
     {
     colorDec += "varying vec4 vertexColorVSOutput;\n";
+
+    // If 1 or 2 components per coordinates
+    std::string colorDecVSType;
+    std::string colorImplVS;
+    int cNumComp = this->VBO->ColorComponents;
+    switch (cNumComp)
+      {
+      case 1:
+        colorDecVSType = "float";
+        colorImplVS = "vec4(scalarColor.r,scalarColor.r,scalarColor.r,1.0)";
+        break;
+      case 2:
+        colorDecVSType = "vec2";
+        colorImplVS = "vec4(scalarColor.r,scalarColor.r,scalarColor.r,scalarColor.g)";
+        break;
+      case 3:
+        colorDecVSType = "vec3";
+        colorImplVS = "vec4(scalarColor.r,scalarColor.g,scalarColor.b,1.0)";
+        break;
+      case 4:
+        colorDecVSType = "vec4";
+        colorImplVS = "scalarColor";
+        break;
+      }
+
     vtkShaderProgram::Substitute(VSSource,"//VTK::Color::Dec",
-                        "attribute vec4 scalarColor;\n"
-                        "varying vec4 vertexColorVSOutput;");
+      "attribute " + colorDecVSType + " scalarColor;\n" +
+      "varying vec4 vertexColorVSOutput;");
     vtkShaderProgram::Substitute(VSSource,"//VTK::Color::Impl",
-                        "vertexColorVSOutput =  scalarColor;");
-    vtkShaderProgram::Substitute(GSSource,
-      "//VTK::Color::Dec",
+      "vertexColorVSOutput = " + colorImplVS + ";");
+    vtkShaderProgram::Substitute(GSSource, "//VTK::Color::Dec",
       "in vec4 vertexColorVSOutput[];\n"
       "out vec4 vertexColorGSOutput;");
-    vtkShaderProgram::Substitute(GSSource,
-      "//VTK::Color::Impl",
+    vtkShaderProgram::Substitute(GSSource, "//VTK::Color::Imp",
       "vertexColorGSOutput = vertexColorVSOutput[i];");
     }
   if (this->HaveCellScalars && !this->HavePickScalars && !this->DrawingEdges)
@@ -601,13 +624,15 @@ void vtkOpenGLPolyDataMapper::ReplaceShaderColor(
         (this->ScalarMaterialMode == VTK_MATERIALMODE_DEFAULT &&
           actor->GetProperty()->GetAmbient() <= actor->GetProperty()->GetDiffuse()))
       {
-      vtkShaderProgram::Substitute(FSSource,"//VTK::Color::Impl", colorImpl +
+      vtkShaderProgram::Substitute(FSSource,"//VTK::Color::Impl",
+        colorImpl +
         "  diffuseColor = vertexColorVSOutput.rgb;\n"
         "  opacity = opacity*vertexColorVSOutput.a;");
       }
     else
       {
-      vtkShaderProgram::Substitute(FSSource,"//VTK::Color::Impl", colorImpl +
+      vtkShaderProgram::Substitute(FSSource,"//VTK::Color::Impl",
+        colorImpl +
         "  diffuseColor = vertexColorVSOutput.rgb;\n"
         "  ambientColor = vertexColorVSOutput.rgb;\n"
         "  opacity = opacity*vertexColorVSOutput.a;");
@@ -624,9 +649,9 @@ void vtkOpenGLPolyDataMapper::ReplaceShaderColor(
           (this->ScalarMaterialMode == VTK_MATERIALMODE_DEFAULT &&
             actor->GetProperty()->GetAmbient() > actor->GetProperty()->GetDiffuse()))
         {
-        vtkShaderProgram::Substitute(FSSource,
-          "//VTK::Color::Impl", colorImpl +
-          "  vec4 texColor = texture2D(texture1, tcoordVCVSOutput.st);\n"
+        vtkShaderProgram::Substitute(FSSource, "//VTK::Color::Impl",
+          colorImpl +
+          "  vec4 texColor = texture2D(texture_0, tcoordVCVSOutput_0.st);\n"
           "  ambientColor = texColor.rgb;\n"
           "  opacity = opacity*texColor.a;");
         }
@@ -634,17 +659,17 @@ void vtkOpenGLPolyDataMapper::ReplaceShaderColor(
           (this->ScalarMaterialMode == VTK_MATERIALMODE_DEFAULT &&
            actor->GetProperty()->GetAmbient() <= actor->GetProperty()->GetDiffuse()))
         {
-        vtkShaderProgram::Substitute(FSSource,
-          "//VTK::Color::Impl", colorImpl +
-          "  vec4 texColor = texture2D(texture1, tcoordVCVSOutput.st);\n"
+        vtkShaderProgram::Substitute(FSSource, "//VTK::Color::Impl",
+          colorImpl +
+          "  vec4 texColor = texture2D(texture_0, tcoordVCVSOutput_0.st);\n"
           "  diffuseColor = texColor.rgb;\n"
           "  opacity = opacity*texColor.a;");
         }
       else
         {
-        vtkShaderProgram::Substitute(FSSource,
-          "//VTK::Color::Impl", colorImpl +
-          "vec4 texColor = texture2D(texture1, tcoordVCVSOutput.st);\n"
+        vtkShaderProgram::Substitute(FSSource, "//VTK::Color::Impl",
+          colorImpl +
+          "vec4 texColor = texture2D(texture_0, tcoordVCVSOutput_0.st);\n"
           "  ambientColor = texColor.rgb;\n"
           "  diffuseColor = texColor.rgb;\n"
           "  opacity = opacity*texColor.a;");
