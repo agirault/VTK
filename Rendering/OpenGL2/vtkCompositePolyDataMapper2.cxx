@@ -851,31 +851,65 @@ void vtkCompositePolyDataMapper2::AppendOneBufferObject(
   this->AppendCellTextures(ren, act, prims, representation,
     newColors, newNorms, poly);
 
-  // do we have texture maps?
-  bool haveTextures = (this->ColorTextureMap || act->GetTexture() || act->GetProperty()->GetNumberOfTextures());
-
-  // Set the texture if we are going to use texture
-  // for coloring with a point attribute.
-  // fixme ... make the existence of the coordinate array the signal.
-  vtkDataArray *tcoords = NULL;
-  if (haveTextures)
+  // Set the texture coordinates we plan to use
+  std::vector<vtkDataArray *> tcoords_list;
+  if (this->HaveTextures(act) && this->HaveTCoords(poly))
     {
     if (this->InterpolateScalarsBeforeMapping && this->ColorCoordinates)
       {
-      tcoords = this->ColorCoordinates;
+      if (!this->ColorCoordinates->GetName())
+        {
+        this->ColorCoordinates->SetName("CCoords");
+        }
+      tcoords_list.push_back(this->ColorCoordinates);
       }
     else
       {
-      tcoords = poly->GetPointData()->GetTCoords();
+      if (vtkDataArray* tcoords = poly->GetPointData()->GetTCoords())
+        {
+        if (!tcoords->GetName())
+          {
+          tcoords->SetName("TCoords");
+          }
+        tcoords_list.push_back(tcoords);
+        }
+      for(unsigned int i = 0 ; i < act->GetProperty()->GetNumberOfTextures(); ++i)
+        {
+        if (vtkTexture* texture = act->GetProperty()->GetTexture(i))
+          {
+          std::string tCoordsName;
+          if(this->GetMappedTCoordsName(texture->GetTextureUnit(), &tCoordsName))
+            {
+            tcoords_list.push_back(poly->GetPointData()->GetArray(tCoordsName.c_str()));
+            }
+          }
+        }
       }
     }
 
   // Build the VBO
-  this->VBO->AppendVBO(poly->GetPoints(),
-            poly->GetPoints()->GetNumberOfPoints(),
-            n, tcoords,
-            c ? (unsigned char *)c->GetVoidPointer(0) : NULL,
-            c ? c->GetNumberOfComponents() : 0);
+  this->VBO->AddPoints(poly->GetPoints(), true);
+  if (n)
+    {
+    if (!n->GetName())
+      {
+      n->SetName("Normals");
+      }
+    this->VBO->AddDataArray(n);
+    }
+  if (c)
+    {
+    if (!c->GetName())
+      {
+      c->SetName("Colors");
+      }
+    this->VBO->AddDataArray(c);
+    }
+  for (int i = 0; i < tcoords_list.size(); ++i)
+    {
+    this->VBO->AddDataArray(tcoords_list.at(i));
+    }
+  this->VBO->UpdateVBO();
 
   // now create the IBOs
   if (representation == VTK_POINTS)
