@@ -857,7 +857,7 @@ void vtkX3DExporter::WriteATexture(vtkActor *anActor,
 
   writer->StartNode(PixelTexture);
   writer->SetField(image, &(imageDataVec.front()), imageDataVec.size(), true);
-  if (!(aTexture->GetRepeat()))
+  if (aTexture->GetWrapMode() != vtkTexture::VTKTextureWrapMode::Repeat)
     {
     writer->SetField(repeatS, false);
     writer->SetField(repeatT, false);

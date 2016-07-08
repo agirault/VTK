@@ -238,7 +238,7 @@ vtkScalarBarActor::vtkScalarBarActor()
 
   this->Texture = vtkTexture::New();
   this->Texture->SetInputData(image);
-  this->Texture->RepeatOn();
+  this->Texture->SetWrapMode(vtkTexture::VTKTextureWrapMode::Repeat);
   this->TextureActor->SetTexture(this->Texture);
   image->Delete();
 

@@ -79,7 +79,7 @@ vtkOpenGLImageSliceMapper::vtkOpenGLImageSliceMapper()
   this->PolyDataActor = vtkActor::New();
   this->PolyDataActor->SetMapper(polyDataMapper.Get());
   vtkNew<vtkTexture> texture;
-  texture->RepeatOff();
+  texture->SetWrapMode(vtkTexture::VTKTextureWrapMode::ClampToEdge);
   this->PolyDataActor->SetTexture(texture.Get());
   }
 
@@ -336,11 +336,11 @@ void vtkOpenGLImageSliceMapper::RenderTexturedPolygon(
 
     if (this->UseClampToEdge)
       {
-      this->PolyDataActor->GetTexture()->EdgeClampOn();
+      this->PolyDataActor->GetTexture()->SetWrapMode(vtkTexture::VTKTextureWrapMode::ClampToEdge);
       }
     else
       {
-      this->PolyDataActor->GetTexture()->EdgeClampOff();
+      this->PolyDataActor->GetTexture()->SetWrapMode(vtkTexture::VTKTextureWrapMode::Repeat);
       }
 
     // modify the load time to the current time

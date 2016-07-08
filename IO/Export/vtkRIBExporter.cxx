@@ -1211,7 +1211,15 @@ void vtkRIBExporter::WriteTexture (vtkTexture *aTexture)
 //                   RiBoxFilter,
 //                   1, 1,
 //                   RI_NULL);
-  const char *wrap = aTexture->GetRepeat () ? "periodic" : "clamp";
+  const char *wrap;
+  if(aTexture->GetWrapMode() == vtkTexture::VTKTextureWrapMode::Repeat)
+    {
+    wrap = "periodic";
+    }
+  else
+    {
+    "clamp";
+    }
   fprintf (this->FilePtr, "MakeTexture \"%s\" ", this->GetTIFFName (aTexture));
   fprintf (this->FilePtr, "\"%s\" ", this->GetTextureName (aTexture));
   fprintf (this->FilePtr, "\"%s\" \"%s\" ", wrap, wrap);

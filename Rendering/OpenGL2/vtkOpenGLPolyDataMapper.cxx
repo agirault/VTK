@@ -2970,7 +2970,7 @@ void vtkOpenGLPolyDataMapper::BuildBufferObjects(vtkRenderer *ren, vtkActor *act
     if (this->InternalColorTexture == 0)
       {
       this->InternalColorTexture = vtkOpenGLTexture::New();
-      this->InternalColorTexture->RepeatOff();
+      this->InternalColorTexture->SetWrapMode(vtkTexture::VTKTextureWrapMode::ClampToEdge);
       }
     this->InternalColorTexture->SetInputData(this->ColorTextureMap);
     }

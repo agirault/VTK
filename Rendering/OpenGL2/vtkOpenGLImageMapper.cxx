@@ -70,7 +70,7 @@ vtkOpenGLImageMapper::vtkOpenGLImageMapper()
   this->Actor->SetMapper(mapper.Get());
 
   vtkNew<vtkTexture> texture;
-  texture->RepeatOff();
+  texture->SetWrapMode(vtkTexture::VTKTextureWrapMode::ClampToEdge);
   this->Actor->SetTexture(texture.Get());
 
   vtkNew<vtkFloatArray> tcoords;

@@ -202,8 +202,7 @@ bool vtkGeoAlignedImageSource::FetchRoot(vtkGeoTreeNode* r)
   texTrans->Scale(1.0/360.0, 1.0/180.0, 1.0); // to [0,1]
   texture->SetTransform(texTrans);
   texture->InterpolateOn();
-  texture->RepeatOff();
-  texture->EdgeClampOn();
+  texture->SetWrapMode(vtkTexture::VTKTextureWrapMode::ClampToEdge);
 
   root->SetLevel(-1);
   root->SetLatitudeRange(-270, 90);
@@ -396,8 +395,7 @@ void vtkGeoAlignedImageSource::CropImageForNode(vtkGeoImageNode* node, vtkImageD
   tex->SetTransform(texTrans);
   tex->SetInputData(cropped);
   tex->InterpolateOn();
-  tex->RepeatOff();
-  tex->EdgeClampOn();
+  tex->SetWrapMode(vtkTexture::VTKTextureWrapMode::ClampToEdge);
 
   node->SetTexture(tex);
 }

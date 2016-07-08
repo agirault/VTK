@@ -35,9 +35,8 @@ vtkAbstractObjectFactoryNewMacro(vtkTexture)
 // Construct object and initialize.
 vtkTexture::vtkTexture()
 {
-  this->Repeat = 1;
+  this->WrapMode = VTKTextureWrapMode::Repeat;
   this->Interpolate = 0;
-  this->EdgeClamp = 0;
   this->Quality = VTK_TEXTURE_QUALITY_DEFAULT;
   this->PremultipliedAlpha = false;
 
@@ -117,8 +116,7 @@ void vtkTexture::PrintSelf(ostream& os, vtkIndent indent)
   this->Superclass::PrintSelf(os,indent);
 
   os << indent << "Interpolate: " << (this->Interpolate ? "On\n" : "Off\n");
-  os << indent << "Repeat:      " << (this->Repeat ? "On\n" : "Off\n");
-  os << indent << "EdgeClamp:   " << (this->EdgeClamp ? "On\n" : "Off\n");
+  os << indent << "Wrap Mode:   " << this->WrapMode << "\n";
   os << indent << "Quality:     ";
   switch (this->Quality)
     {

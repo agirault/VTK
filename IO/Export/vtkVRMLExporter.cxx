@@ -649,7 +649,7 @@ void vtkVRMLExporter::WriteShapeBegin( vtkActor* actor, FILE *fileP,
         fprintf(fileP," ");
         }
       }
-    if (!(aTexture->GetRepeat()))
+    if (aTexture->GetWrapMode() != vtkTexture::VTKTextureWrapMode::Repeat)
       {
       fprintf(fileP,"              repeatS FALSE\n");
       fprintf(fileP,"              repeatT FALSE\n");

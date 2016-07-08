@@ -1122,8 +1122,15 @@ void vtkOpenGLContextDevice2D::DrawPointSprites(vtkImageData *sprite,
         }
       int properties = this->Brush->GetTextureProperties();
       this->Storage->SpriteTexture->SetInputData(sprite);
-      this->Storage->SpriteTexture->SetRepeat(properties & vtkContextDevice2D::Repeat);
       this->Storage->SpriteTexture->SetInterpolate(properties & vtkContextDevice2D::Linear);
+      if (properties & vtkContextDevice2D::Repeat)
+        {
+        this->Storage->SpriteTexture->SetWrapMode(vtkTexture::VTKTextureWrapMode::Repeat);
+        }
+      else
+        {
+        this->Storage->SpriteTexture->SetWrapMode(vtkTexture::VTKTextureWrapMode::ClampToEdge);
+        }
       this->Storage->SpriteTexture->Render(this->Renderer);
       int tunit = vtkOpenGLTexture::SafeDownCast(
         this->Storage->SpriteTexture)->GetTextureUnit();
@@ -2045,9 +2052,15 @@ void vtkOpenGLContextDevice2D::SetTexture(vtkImageData* image, int properties)
     }
   this->Storage->Texture->SetInputData(image);
   this->Storage->TextureProperties = properties;
-  this->Storage->Texture->SetRepeat(properties & vtkContextDevice2D::Repeat);
   this->Storage->Texture->SetInterpolate(properties & vtkContextDevice2D::Linear);
-  this->Storage->Texture->EdgeClampOn();
+  if (properties & vtkContextDevice2D::Repeat)
+    {
+    this->Storage->Texture->SetWrapMode(vtkTexture::VTKTextureWrapMode::Repeat);
+    }
+  else
+    {
+    this->Storage->Texture->SetWrapMode(vtkTexture::VTKTextureWrapMode::ClampToEdge);
+    }
 }
 
 //-----------------------------------------------------------------------------

@@ -177,9 +177,8 @@ bool vtkGeoFileImageSource::ReadImage(int level, int id, vtkGeoImageNode* node)
 
   texture->SetInputConnection(reader->GetOutputPort());
   texture->SetTransform(texTrans);
-  texture->RepeatOff();
+  texture->SetWrapMode(vtkTexture::VTKTextureWrapMode::ClampToEdge);
   texture->InterpolateOn();
-  texture->EdgeClampOn();
   node->SetTexture(texture);
   return true;
 }

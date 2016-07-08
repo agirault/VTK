@@ -2746,7 +2746,7 @@ void vtkImagePlaneWidget::GenerateTexturePlane()
   this->Texture->SetQualityTo32Bit();
   this->Texture->MapColorScalarsThroughLookupTableOff();
   this->Texture->SetInterpolate(this->TextureInterpolate);
-  this->Texture->RepeatOff();
+  this->Texture->SetWrapMode(vtkTexture::VTKTextureWrapMode::ClampToEdge);
   this->Texture->SetLookupTable(this->LookupTable);
 
   this->TexturePlaneActor->SetMapper(texturePlaneMapper);

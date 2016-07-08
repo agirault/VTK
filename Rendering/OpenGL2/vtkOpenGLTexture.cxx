@@ -276,17 +276,28 @@ void vtkOpenGLTexture::Load(vtkRenderer *ren)
         this->TextureObject->SetMinificationFilter(vtkTextureObject::Nearest);
         this->TextureObject->SetMagnificationFilter(vtkTextureObject::Nearest);
         }
-      if (this->Repeat)
+      switch(this->GetWrapMode())
         {
-        this->TextureObject->SetWrapS(vtkTextureObject::Repeat);
-        this->TextureObject->SetWrapT(vtkTextureObject::Repeat);
-        this->TextureObject->SetWrapR(vtkTextureObject::Repeat);
-        }
-      else
-        {
-        this->TextureObject->SetWrapS(vtkTextureObject::ClampToEdge);
-        this->TextureObject->SetWrapT(vtkTextureObject::ClampToEdge);
-        this->TextureObject->SetWrapR(vtkTextureObject::ClampToEdge);
+        case VTKTextureWrapMode::Repeat:
+          this->TextureObject->SetWrapS(vtkTextureObject::Repeat);
+          this->TextureObject->SetWrapT(vtkTextureObject::Repeat);
+          this->TextureObject->SetWrapR(vtkTextureObject::Repeat);
+          break;
+        case VTKTextureWrapMode::MirroredRepeat:
+          this->TextureObject->SetWrapS(vtkTextureObject::MirroredRepeat);
+          this->TextureObject->SetWrapT(vtkTextureObject::MirroredRepeat);
+          this->TextureObject->SetWrapR(vtkTextureObject::MirroredRepeat);
+          break;
+        case VTKTextureWrapMode::ClampToEdge:
+          this->TextureObject->SetWrapS(vtkTextureObject::ClampToEdge);
+          this->TextureObject->SetWrapT(vtkTextureObject::ClampToEdge);
+          this->TextureObject->SetWrapR(vtkTextureObject::ClampToEdge);
+          break;
+        case VTKTextureWrapMode::ClampToBorder:
+          this->TextureObject->SetWrapS(vtkTextureObject::ClampToBorder);
+          this->TextureObject->SetWrapT(vtkTextureObject::ClampToBorder);
+          this->TextureObject->SetWrapR(vtkTextureObject::ClampToBorder);
+          break;
         }
 
       // modify the load time to the current time

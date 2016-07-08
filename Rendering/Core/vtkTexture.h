@@ -90,18 +90,15 @@ public:
   // Description:
   // Turn on/off the repetition of the texture map when the texture
   // coords extend beyond the [0,1] range.
-  vtkGetMacro(Repeat, int);
-  vtkSetMacro(Repeat, int);
-  vtkBooleanMacro(Repeat, int);
-
-  // Description:
-  // Turn on/off the clamping of the texture map when the texture
-  // coords extend beyond the [0,1] range.
-  // Only used when Repeat is off, and edge clamping is supported by
-  // the graphics card.
-  vtkGetMacro(EdgeClamp, int);
-  vtkSetMacro(EdgeClamp, int);
-  vtkBooleanMacro(EdgeClamp, int);
+  enum VTKTextureWrapMode
+  {
+    ClampToEdge=0,
+    Repeat,
+    MirroredRepeat,
+    ClampToBorder
+  };
+  vtkGetMacro(WrapMode, VTKTextureWrapMode);
+  vtkSetMacro(WrapMode, VTKTextureWrapMode);
 
   // Description:
   // Turn on/off linear interpolation of the texture map when rendering.
@@ -214,8 +211,7 @@ protected:
   {
   }
 
-  int Repeat;
-  int EdgeClamp;
+  VTKTextureWrapMode WrapMode;
   int Interpolate;
   int Quality;
   int MapColorScalarsThroughLookupTable;

@@ -799,7 +799,7 @@ void vtkCompositePolyDataMapper2::AppendOneBufferObject(
     if (this->InternalColorTexture == 0)
       {
       this->InternalColorTexture = vtkOpenGLTexture::New();
-      this->InternalColorTexture->RepeatOff();
+      this->InternalColorTexture->SetWrapMode(vtkTexture::VTKTextureWrapMode::ClampToEdge);
       }
     this->InternalColorTexture->SetInputData(this->ColorTextureMap);
     }
