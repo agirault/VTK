@@ -131,13 +131,16 @@ public:
   int ColorComponents; // Number of color components
   std::vector<float> PackedVBO; // the data
 
+  // New implementation to fill in and upload the VBO
+  size_t AppendVertexCount; // Number of vertices to append to the VBO
   std::map<std::string, int> Offset;
   std::map<std::string, int> Components;
   std::map<std::string, int> DataType;
   std::vector<vtkDataArray*> DataArrays;
   std::vector<unsigned char> _PackedVBO; // the data
+  void AddPoints(vtkPoints *points, bool append);
   void AddDataArray(vtkDataArray *data);
-  void CreateVBO();
+  void UpdateVBO();
 
 protected:
   vtkOpenGLVertexBufferObject();

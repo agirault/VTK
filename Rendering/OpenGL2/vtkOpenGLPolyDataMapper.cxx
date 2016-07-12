@@ -3320,7 +3320,7 @@ void vtkOpenGLPolyDataMapper::BuildBufferObjects(vtkRenderer *ren, vtkActor *act
   if (this->VBOBuildString != toString.str())
     {
     // Build the VBO
-    this->VBO->AddDataArray(poly->GetPoints()->GetData());
+    this->VBO->AddPoints(poly->GetPoints(), false);
     if (n)
       {
       if (!n->GetName())
@@ -3341,7 +3341,7 @@ void vtkOpenGLPolyDataMapper::BuildBufferObjects(vtkRenderer *ren, vtkActor *act
       {
       this->VBO->AddDataArray(tcoords_list.at(i));
       }
-    this->VBO->CreateVBO();
+    this->VBO->UpdateVBO();
 
     // If the VBO coordinates were shifted and scaled, prepare the inverse transform
     // for application to the model->view matrix:

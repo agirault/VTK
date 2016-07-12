@@ -508,14 +508,33 @@ void vtkOpenGLVertexBufferObject::CreateVBO(
 }
 
 //-----------------------------------------------------------------------------
+void vtkOpenGLVertexBufferObject::AddPoints(vtkPoints *points, bool append)
+{
+  // Update vertex count
+  this->AppendVertexCount = points->GetNumberOfPoints();
+  if(append)
+    {
+    this->VertexCount += this->AppendVertexCount;
+    }
+  else
+    {
+    this->VertexCount = this->AppendVertexCount;
+    this->_PackedVBO.resize(0);
+    }
+
+  // Add Array
+  this->AddDataArray(points->GetData());
+}
+
+//-----------------------------------------------------------------------------
 void vtkOpenGLVertexBufferObject::AddDataArray(vtkDataArray *data)
 {
   // Make sure number of tuples is consistent
-  if (this->VertexCount != data->GetNumberOfTuples())
+  if (this->AppendVertexCount != data->GetNumberOfTuples())
     {
-    vtkErrorMacro( << "Can not add array with a different number of "
-                   << "tuples than previously added arrays:\n"
-                   << "Should be "<< this->VertexCount << " tuples, got "
+    vtkErrorMacro( << "Can not append array with a different number of "
+                   << "tuples than the number of vertices appended:\n"
+                   << "Should be "<< this->AppendVertexCount << " tuples, got "
                    << data->GetNumberOfTuples() << " instead." );
     return;
     }
@@ -566,13 +585,13 @@ void vtkOpenGLVertexBufferObject::AddDataArray(vtkDataArray *data)
 }
 
 //-----------------------------------------------------------------------------
-void vtkOpenGLVertexBufferObject::CreateVBO()
+void vtkOpenGLVertexBufferObject::UpdateVBO()
 {
   // Check for data arrays
   if (this->DataArrays.empty())
     {
     vtkErrorMacro( << "Can not create VBO without any data array. "
-                   << "Call AddDataArray() prior to CreateVBO().");
+                   << "Call AddPoints() or AddDataArray() prior to UpdateVBO().");
     return;
   }
 
@@ -588,7 +607,8 @@ void vtkOpenGLVertexBufferObject::CreateVBO()
 
   // Resize VBO and set up iterator
   this->_PackedVBO.resize(this->Stride * this->VertexCount);
-  std::vector<unsigned char>::iterator it = this->_PackedVBO.begin();
+  std::vector<unsigned char>::iterator it = this->_PackedVBO.begin()
+    + this->Stride * (this->VertexCount - this->AppendVertexCount);
 
   // Get needed info per data array so we do not retrieve it
   // at each vertex when filling the VBO
@@ -610,7 +630,7 @@ void vtkOpenGLVertexBufferObject::CreateVBO()
   unsigned int dataTypeSize;
   unsigned int nbrOfComp;
   unsigned int compXdataSize;
-  for (vtkIdType i = 0; i < this->VertexCount; ++i) // For each vertex
+  for (vtkIdType i = 0; i < this->AppendVertexCount; ++i) // For each vertex
   for (int j = 0; j < this->DataArrays.size(); ++j) // For each data array (position, normals, texture, ...)
     {
     dataPtr = dataPtrs.at(j);
@@ -625,9 +645,8 @@ void vtkOpenGLVertexBufferObject::CreateVBO()
       }
     }
 
-  // Upload & Reset
+  // Upload
   this->Upload(this->_PackedVBO, this->GetType());
-  this->_PackedVBO.resize(0);
 }
 
 //-----------------------------------------------------------------------------
