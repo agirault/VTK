@@ -17,6 +17,7 @@
 #include "vtkRenderingOpenGL2Module.h" // for export macro
 #include "vtkOpenGLBufferObject.h"
 
+#include <map> // STL required
 
 /**
  * @brief OpenGL vertex buffer object
@@ -129,6 +130,14 @@ public:
   int ColorOffset;  // Offset of the color
   int ColorComponents; // Number of color components
   std::vector<float> PackedVBO; // the data
+
+  std::map<std::string, int> Offset;
+  std::map<std::string, int> Components;
+  std::map<std::string, int> DataType;
+  std::vector<vtkDataArray*> DataArrays;
+  std::vector<unsigned char> _PackedVBO; // the data
+  void AddDataArray(vtkDataArray *data);
+  void CreateVBO();
 
 protected:
   vtkOpenGLVertexBufferObject();

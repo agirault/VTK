@@ -393,6 +393,7 @@ bool vtkOpenGLPolyDataMapper::HaveTCoords(vtkPolyData *poly)
 {
     return (this->ColorCoordinates ||
             poly->GetPointData()->GetTCoords() ||
+            ! this->MappedTCoordNames.empty() ||
             this->ForceTextureCoordinates);
 }
 
@@ -503,7 +504,7 @@ void vtkOpenGLPolyDataMapper::ReplaceShaderColor(
       }
     }
   // add scalar vertex coloring
-  if (this->VBO->ColorComponents != 0 && !this->DrawingEdges)
+  if (this->VBO->ColorOffset && !this->DrawingEdges)
     {
     colorDec += "varying vec4 vertexColorVSOutput;\n";
     vtkShaderProgram::Substitute(VSSource,"//VTK::Color::Dec",
@@ -585,7 +586,7 @@ void vtkOpenGLPolyDataMapper::ReplaceShaderColor(
     }
 
   // now handle scalar coloring
-  if (this->VBO->ColorComponents != 0 && !this->DrawingEdges)
+  if (this->VBO->ColorOffset && !this->DrawingEdges)
     {
     if (this->ScalarMaterialMode == VTK_MATERIALMODE_AMBIENT ||
         (this->ScalarMaterialMode == VTK_MATERIALMODE_DEFAULT &&
@@ -911,57 +912,91 @@ void vtkOpenGLPolyDataMapper::ReplaceShaderTCoord(
         "//VTK::TCoord::Dec\n"
         "uniform mat4 tcMatrix;",
         false);
-      if (this->VBO->TCoordComponents == 1)
-        {
-        vtkShaderProgram::Substitute(VSSource, "//VTK::TCoord::Impl",
-          "vec4 tcoordTmp = tcMatrix*vec4(tcoordMC,0.0,0.0,1.0);\n"
-          "tcoordVCVSOutput = tcoordTmp.x/tcoordTmp.w;");
-        }
-      else
-        {
-        vtkShaderProgram::Substitute(VSSource, "//VTK::TCoord::Impl",
-          "vec4 tcoordTmp = tcMatrix*vec4(tcoordMC,0.0,1.0);\n"
-          "tcoordVCVSOutput = tcoordTmp.xy/tcoordTmp.w;");
-        }
-      }
-    else
-      {
-      vtkShaderProgram::Substitute(VSSource, "//VTK::TCoord::Impl",
-        "tcoordVCVSOutput = tcoordMC;");
       }
 
-    // If 1 or 2 components per coordinates
     std::string tCoordType;
+    std::string tCoordImpVS1;
+    std::string tCoordImpVS2;
     std::string tCoordImpFSPre;
     std::string tCoordImpFSPost;
-    if (this->VBO->TCoordComponents == 1)
-      {
-      tCoordType = "float";
-      tCoordImpFSPre = "vec2(";
-      tCoordImpFSPost = ", 0.0)";
-      }
-    else
-      {
-      tCoordType = "vec2";
-      tCoordImpFSPre = "";
-      tCoordImpFSPost = "";
-      }
-
+    std::string tCoordDecVS;
+    std::string tCoordImpVS;
+    std::string tCoordDecGS;
+    std::string tCoordImpGS;
     std::string tCoordDecFS;
     std::string tCoordImpFS;
     for(unsigned int i = 0 ; i < actor->GetProperty()->GetNumberOfTextures(); ++i)
       {
       if (vtkTexture* texture = actor->GetProperty()->GetTexture(i))
         {
-        // Define texture
+        std::string tCoordsName;
+        if(!this->GetMappedTCoordsName(texture->GetTextureUnit(), &tCoordsName))
+          {
+          vtkErrorMacro(<< "Could not find texture coordinates associated with "
+                        << "texture unit " << texture->GetTextureUnit() << ".")
+          continue;
+          }
+
+        // If 1 or 2 components per coordinates
+        if (this->VBO->Components[tCoordsName] == 1)
+          {
+          tCoordType = "float";
+          tCoordImpVS1 = ",0.0,0.0,1.0";
+          tCoordImpVS2 = ".x";
+          tCoordImpFSPre = "vec2(";
+          tCoordImpFSPost = ", 0.0)";
+          }
+        else
+          {
+          tCoordType = "vec2";
+          tCoordImpVS1 = ",0.0,1.0";
+          tCoordImpVS2 = ".xy";
+          tCoordImpFSPre = "";
+          tCoordImpFSPost = "";
+          }
+
         std::stringstream ss;
-        ss << "uniform sampler2D texture_" << i << ";\n";
+
+        // Define tcoordVCVSOutput
+        ss.str("");
+        ss << "attribute " << tCoordType << " " << tCoordsName << ";\n"
+           << "varying " << tCoordType << " tcoordVCVSOutput_" << i << ";\n";
+        tCoordDecVS += ss.str();
+
+        // Implement tcoordVCVSOutput
+        ss.str("");
+        if (info && info->Has(vtkProp::GeneralTextureTransform()))
+          {
+          ss << "vec4 tcoordTmp = tcMatrix*vec4(" << tCoordsName << tCoordImpVS1 << ");\n"
+             << "tcoordVCVSOutput_" << i << " = tcoordTmp" << tCoordImpVS2 << "/tcoordTmp.w;\n";
+          }
+        else
+          {
+          ss << "tcoordVCVSOutput_" << i << " = " << tCoordsName << ";\n";
+          }
+        tCoordImpVS += ss.str();
+
+        // Define tcoordVCGSOutput
+        ss.str("");
+        ss << "in " << tCoordType << " tcoordVCVSOutput_" << i << "[];\n"
+           << "out " << tCoordType << " tcoordVCGSOutput_" << i << ";\n";
+        tCoordDecGS += ss.str();
+
+        // Implement tcoordVCGSOutput
+        ss.str("");
+        ss << "tcoordVCGSOutput_" << i << " = tcoordVCVSOutput_" << i << "[i];\n";
+        tCoordImpGS += ss.str();
+
+        // Define texture
+        ss.str("");
+        ss << "varying " + tCoordType + " tcoordVCVSOutput_" << i << ";\n"
+           << "uniform sampler2D texture_" << i << ";\n";
         tCoordDecFS += ss.str();
 
         // Read texture color
         ss.str("");
         ss << "vec4 tcolor_" << i << " = texture2D(texture_" << i << ", "
-           << tCoordImpFSPre << "tcoordVCVSOutput" << tCoordImpFSPost << "); // Read texture color\n";
+           << tCoordImpFSPre << "tcoordVCVSOutput_" << i << tCoordImpFSPost << "); // Read texture color\n";
 
         // Update color based on texture number of components
         int tNumComp = vtkOpenGLTexture::SafeDownCast(texture)->GetTextureObject()->GetComponents();
@@ -1022,23 +1057,18 @@ void vtkOpenGLPolyDataMapper::ReplaceShaderTCoord(
       }
 
     // Substitute in shader files
-    vtkShaderProgram::Substitute(VSSource, "//VTK::TCoord::Dec",
-      "attribute " + tCoordType + " tcoordMC;\n" +
-      "varying " + tCoordType + " tcoordVCVSOutput;");
-    vtkShaderProgram::Substitute(GSSource, "//VTK::TCoord::Dec",
-      "in " + tCoordType + " tcoordVCVSOutput[];\n" +
-      "out " + tCoordType + " tcoordVCGSOutput;");
-    vtkShaderProgram::Substitute(GSSource, "//VTK::TCoord::Impl",
-      "tcoordVCGSOutput = tcoordVCVSOutput[i];");
-    vtkShaderProgram::Substitute(FSSource, "//VTK::TCoord::Dec",
-      "varying " + tCoordType + " tcoordVCVSOutput;\n" + tCoordDecFS);
+    vtkShaderProgram::Substitute(VSSource, "//VTK::TCoord::Dec", tCoordDecVS);
+    vtkShaderProgram::Substitute(VSSource, "//VTK::TCoord::Impl", tCoordImpVS);
+    vtkShaderProgram::Substitute(GSSource, "//VTK::TCoord::Dec", tCoordDecGS);
+    vtkShaderProgram::Substitute(GSSource, "//VTK::TCoord::Impl", tCoordImpGS);
+    vtkShaderProgram::Substitute(FSSource, "//VTK::TCoord::Dec", tCoordDecFS);
 
     // do texture mapping except for scalar coloring case which is
     // handled above
     if (!this->InterpolateScalarsBeforeMapping || !this->ColorCoordinates)
       {
-        vtkShaderProgram::Substitute(FSSource, "//VTK::TCoord::Impl",
-          tCoordImpFS + "gl_FragData[0] = clamp(gl_FragData[0],0.0,1.0) * tcolor;");
+        tCoordImpFS += "gl_FragData[0] = clamp(gl_FragData[0],0.0,1.0) * tcolor;";
+        vtkShaderProgram::Substitute(FSSource, "//VTK::TCoord::Impl", tCoordImpFS);
       }
 
     }
@@ -1566,43 +1596,68 @@ void vtkOpenGLPolyDataMapper::SetMapperShaderParameters(vtkOpenGLHelper &cellBO,
     cellBO.VAO->Bind();
     if (cellBO.Program->IsAttributeUsed("vertexMC"))
       {
-      if (!cellBO.VAO->AddAttributeArray(cellBO.Program, this->VBO,
-                                         "vertexMC", this->VBO->VertexOffset,
-                                         this->VBO->Stride, VTK_FLOAT, 3,
-                                         false))
+      if (!cellBO.VAO->AddAttributeArray(cellBO.Program, this->VBO, "vertexMC",
+        this->VBO->VertexOffset,
+        this->VBO->Stride,
+        this->VBO->DataType["Points"] ? this->VBO->DataType["Points"] : VTK_FLOAT,
+        this->VBO->Components["Points"] ? this->VBO->Components["Points"] : 3,
+        false))
         {
         vtkErrorMacro(<< "Error setting 'vertexMC' in shader VAO.");
         }
       }
-    if (this->VBO->NormalOffset && this->LastLightComplexity[&cellBO] > 0 &&
+    if (this->VBO->NormalOffset &&
+        this->LastLightComplexity[&cellBO] > 0 &&
         cellBO.Program->IsAttributeUsed("normalMC"))
       {
-      if (!cellBO.VAO->AddAttributeArray(cellBO.Program, this->VBO,
-                                      "normalMC", this->VBO->NormalOffset,
-                                      this->VBO->Stride, VTK_FLOAT, 3, false))
+      if (!cellBO.VAO->AddAttributeArray(cellBO.Program, this->VBO, "normalMC",
+        this->VBO->NormalOffset,
+        this->VBO->Stride,
+        this->VBO->DataType["Normals"] ? this->VBO->DataType["Normals"] : VTK_FLOAT,
+        this->VBO->Components["Normals"] ? this->VBO->Components["Normals"] : 3,
+        false))
         {
         vtkErrorMacro(<< "Error setting 'normalMC' in shader VAO.");
         }
       }
-    if (this->VBO->TCoordComponents && !this->DrawingEdges &&
-        cellBO.Program->IsAttributeUsed("tcoordMC"))
-      {
-      if (!cellBO.VAO->AddAttributeArray(cellBO.Program, this->VBO,
-                                      "tcoordMC", this->VBO->TCoordOffset,
-                                      this->VBO->Stride, VTK_FLOAT, this->VBO->TCoordComponents, false))
-        {
-        vtkErrorMacro(<< "Error setting 'tcoordMC' in shader VAO.");
-        }
-      }
-    if (this->VBO->ColorComponents != 0 && !this->DrawingEdges &&
+    if (this->VBO->ColorOffset &&
+        !this->DrawingEdges &&
         cellBO.Program->IsAttributeUsed("scalarColor"))
       {
-      if (!cellBO.VAO->AddAttributeArray(cellBO.Program, this->VBO,
-                                      "scalarColor", this->VBO->ColorOffset,
-                                      this->VBO->Stride, VTK_UNSIGNED_CHAR,
-                                      this->VBO->ColorComponents, true))
+      if (!cellBO.VAO->AddAttributeArray(cellBO.Program, this->VBO, "scalarColor",
+        this->VBO->ColorOffset,
+        this->VBO->Stride,
+        this->VBO->DataType["Colors"] ? this->VBO->DataType["Colors"] : VTK_UNSIGNED_CHAR,
+        this->VBO->ColorComponents,
+        true))
         {
         vtkErrorMacro(<< "Error setting 'scalarColor' in shader VAO.");
+        }
+      }
+    for(unsigned int i = 0 ; i < actor->GetProperty()->GetNumberOfTextures(); ++i)
+      {
+      if (vtkTexture* texture = actor->GetProperty()->GetTexture(i))
+        {
+        std::string tCoordsName;
+        if(!this->GetMappedTCoordsName(texture->GetTextureUnit(), &tCoordsName))
+          {
+          continue;
+          }
+
+        if (this->VBO->Offset.count(tCoordsName) &&
+            !this->DrawingEdges &&
+            cellBO.Program->IsAttributeUsed(tCoordsName.c_str()))
+          {
+          if (!cellBO.VAO->AddAttributeArray(cellBO.Program, this->VBO, tCoordsName,
+            this->VBO->Offset[tCoordsName],
+            this->VBO->Stride,
+            this->VBO->DataType[tCoordsName],
+            this->VBO->Components[tCoordsName],
+            false))
+            {
+            vtkErrorMacro(<< "Error setting '" << tCoordsName << "' in shader VAO.");
+            }
+          }
         }
       }
     if (this->AppleBugPrimIDs.size() &&
@@ -3082,17 +3137,27 @@ void vtkOpenGLPolyDataMapper::BuildBufferObjects(vtkRenderer *ren, vtkActor *act
       }
     }
 
-    // Set the texture if we are going to use texture
-    // for coloring with a point attribute.
+    // Set the texture coordinates we plan to use
+    std::vector<vtkDataArray *> tcoords_list;
     if (this->HaveTCoords(poly))
       {
       if (this->InterpolateScalarsBeforeMapping && this->ColorCoordinates)
         {
-        tcoords = this->ColorCoordinates;
+        tcoords_list.push_back(this->ColorCoordinates);
         }
       else
         {
-        tcoords = poly->GetPointData()->GetTCoords();
+        for(unsigned int i = 0 ; i < act->GetProperty()->GetNumberOfTextures(); ++i)
+          {
+          if (vtkTexture* texture = act->GetProperty()->GetTexture(i))
+            {
+            std::string tCoordsName;
+            if(this->GetMappedTCoordsName(texture->GetTextureUnit(), &tCoordsName))
+              {
+              tcoords_list.push_back(poly->GetPointData()->GetArray(tCoordsName.c_str()));
+              }
+            }
+          }
         }
       }
 
@@ -3104,19 +3169,40 @@ void vtkOpenGLPolyDataMapper::BuildBufferObjects(vtkRenderer *ren, vtkActor *act
   std::ostringstream toString;
   toString.str("");
   toString.clear();
-  toString << poly->GetMTime() <<
-    'A' << (c ? c->GetMTime() : 1) <<
-    'B' << (n ? n->GetMTime() : 1) <<
-    'C' << (tcoords ? tcoords->GetMTime() : 1);
+  toString << "Poly{" << poly->GetMTime() << "}"
+           << "Colors{" << (c ? c->GetMTime() : 1) << "}"
+           << "Normals{" << (n ? n->GetMTime() : 1) << "}";
+  for (int i = 0; i < tcoords_list.size(); ++i)
+    {
+    toString << tcoords_list.at(i)->GetName() << "{"
+             << tcoords_list.at(i)->GetMTime() << "}";
+    }
 
   if (this->VBOBuildString != toString.str())
     {
     // Build the VBO
-    this->VBO->CreateVBO(poly->GetPoints(),
-        poly->GetPoints()->GetNumberOfPoints(),
-        n, tcoords,
-        c ? (unsigned char *)c->GetVoidPointer(0) : NULL,
-        c ? c->GetNumberOfComponents() : 0);
+    this->VBO->AddDataArray(poly->GetPoints()->GetData());
+    if (n)
+      {
+      if (!n->GetName())
+        {
+        n->SetName("Normals");
+        }
+      this->VBO->AddDataArray(n);
+      }
+    if (c)
+      {
+      if (!c->GetName())
+        {
+        c->SetName("Colors");
+        }
+      this->VBO->AddDataArray(c);
+      }
+    for (int i = 0; i < tcoords_list.size(); ++i)
+      {
+      this->VBO->AddDataArray(tcoords_list.at(i));
+      }
+    this->VBO->CreateVBO();
 
     // If the VBO coordinates were shifted and scaled, prepare the inverse transform
     // for application to the model->view matrix:

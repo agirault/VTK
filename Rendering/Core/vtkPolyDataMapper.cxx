@@ -177,13 +177,25 @@ void vtkPolyDataMapper::MapDataArrayToVertexAttribute(
 
 //----------------------------------------------------------------------------
 void vtkPolyDataMapper::MapDataArrayToMultiTextureAttribute(
-    int vtkNotUsed(unit),
-    const char* vtkNotUsed(dataArrayName),
+    int unit,
+    const char* dataArrayName,
     int vtkNotUsed(fieldAssociation),
     int vtkNotUsed(componentno)
     )
 {
-  vtkErrorMacro("Not implemented at this level...");
+  this->MappedTCoordNames[unit] = dataArrayName;
+}
+
+//----------------------------------------------------------------------------
+bool vtkPolyDataMapper::GetMappedTCoordsName(int unit, std::string *tCoordsName)
+{
+    if (!this->MappedTCoordNames.count(unit))
+      {
+      return false;
+      }
+
+    *tCoordsName = this->MappedTCoordNames.at(unit);
+    return true;
 }
 
 //----------------------------------------------------------------------------

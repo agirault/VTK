@@ -507,6 +507,128 @@ void vtkOpenGLVertexBufferObject::CreateVBO(
   return;
 }
 
+//-----------------------------------------------------------------------------
+void vtkOpenGLVertexBufferObject::AddDataArray(vtkDataArray *data)
+{
+  // Make sure number of tuples is consistent
+  if (this->VertexCount != data->GetNumberOfTuples())
+    {
+    vtkErrorMacro( << "Can not add array with a different number of "
+                   << "tuples than previously added arrays:\n"
+                   << "Should be "<< this->VertexCount << " tuples, got "
+                   << data->GetNumberOfTuples() << " instead." );
+    return;
+    }
+
+  // Update data if already stored
+  const std::string name = data->GetName();
+  if(this->Offset.count(name))
+    {
+    for(int i = 0; i < this->DataArrays.size(); ++i)
+      {
+      if(this->DataArrays.at(i)->GetName() == name)
+        {
+        this->DataArrays.at(i)->UnRegister(this);
+        this->DataArrays[i] = data;
+        data->Register(this);
+        return;
+        }
+      }
+    }
+
+  // Store information
+  this->DataArrays.push_back(data);
+  data->Register(this);
+  this->Components[name] = data->GetNumberOfComponents();
+  this->DataType[name] = data->GetDataType();
+  this->Offset[name] = this->Stride;
+  this->Stride += data->GetDataTypeSize() * data->GetNumberOfComponents();
+
+  // backward compatibility
+  if(name == "Points")
+    {
+    this->VertexOffset = this->Offset[name];
+    }
+  else if(name == "Normals")
+    {
+    this->NormalOffset = this->Offset[name];
+    }
+  else if(name == "Colors")
+    {
+    this->ColorOffset = this->Offset[name];
+    this->ColorComponents = this->Components[name];
+    }
+  else if(name == "TCoords")
+    {
+    this->TCoordOffset = this->Offset[name];
+    this->TCoordComponents = this->Components[name];
+    }
+}
+
+//-----------------------------------------------------------------------------
+void vtkOpenGLVertexBufferObject::CreateVBO()
+{
+  // Check for data arrays
+  if (this->DataArrays.empty())
+    {
+    vtkErrorMacro( << "Can not create VBO without any data array. "
+                   << "Call AddDataArray() prior to CreateVBO().");
+    return;
+  }
+
+  // If 1 data array, fast upload
+  if (this->DataArrays.size() == 1 &&
+      !this->CoordShiftAndScaleEnabled)
+    {
+    this->Upload((unsigned char *)(this->DataArrays.at(0)->GetVoidPointer(0)),
+                 this->Stride * this->VertexCount,
+                 this->GetType());
+    return;
+    }
+
+  // Resize VBO and set up iterator
+  this->_PackedVBO.resize(this->Stride * this->VertexCount);
+  std::vector<unsigned char>::iterator it = this->_PackedVBO.begin();
+
+  // Get needed info per data array so we do not retrieve it
+  // at each vertex when filling the VBO
+  std::vector<unsigned char*> dataPtrs;
+  std::vector<unsigned int> nbrOfCompList;
+  std::vector<unsigned int> dataTypeSizeList;
+  std::vector<unsigned int> compXdataSizeList;
+  for (int j = 0; j < this->DataArrays.size(); ++j)
+    {
+    vtkDataArray* data = this->DataArrays.at(j);
+    dataPtrs.push_back(reinterpret_cast<unsigned char*>(data->GetVoidPointer(0)));
+    nbrOfCompList.push_back(data->GetNumberOfComponents());
+    dataTypeSizeList.push_back(data->GetDataTypeSize());
+    compXdataSizeList.push_back(data->GetNumberOfComponents() * data->GetDataTypeSize());
+    }
+
+  // Fill VBO
+  unsigned char* dataPtr;
+  unsigned int dataTypeSize;
+  unsigned int nbrOfComp;
+  unsigned int compXdataSize;
+  for (vtkIdType i = 0; i < this->VertexCount; ++i) // For each vertex
+  for (int j = 0; j < this->DataArrays.size(); ++j) // For each data array (position, normals, texture, ...)
+    {
+    dataPtr = dataPtrs.at(j);
+    dataTypeSize = nbrOfCompList.at(j);
+    nbrOfComp = dataTypeSizeList.at(j);
+    compXdataSize = compXdataSizeList.at(j);
+    for (int k = 0; k < nbrOfComp; ++k) // For each component (X,Y,Z; U,V; R,G,B,A...)
+    for (int l = 0; l < dataTypeSize; ++l)       // For each byte (float:4, char:1, ...)
+      {
+      int push = (i * compXdataSize) + (k * dataTypeSize) + l;
+      *(it++) = *(dataPtr + push);
+      }
+    }
+
+  // Upload & Reset
+  this->Upload(this->_PackedVBO, this->GetType());
+  this->_PackedVBO.resize(0);
+}
 
 //-----------------------------------------------------------------------------
 void vtkOpenGLVertexBufferObject::PrintSelf(ostream& os, vtkIndent indent)

@@ -26,6 +26,8 @@
 #include "vtkMapper.h"
 #include "vtkTexture.h" // used to include texture unit enum.
 
+#include <map> // STL required
+
 class vtkPolyData;
 class vtkRenderer;
 class vtkRenderWindow;
@@ -100,6 +102,8 @@ public:
     int unit,
     const char* dataArrayName, int fieldAssociation, int componentno = -1);
 
+  virtual bool GetMappedTCoordsName(int unit, std::string *tCoordsName);
+
   // Description:
   // Remove a vertex attribute mapping.
   virtual void RemoveVertexAttributeMapping(const char* vertexAttributeName);
@@ -128,6 +132,8 @@ protected:
   int NumberOfPieces;
   int NumberOfSubPieces;
   int GhostLevel;
+
+  std::map<int, std::string> MappedTCoordNames;
 
   virtual int FillInputPortInformation(int, vtkInformation*);
 
